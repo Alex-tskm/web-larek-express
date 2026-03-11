@@ -92,10 +92,7 @@ export const createProduct = async (
       price: product.price ?? null
     };    
 
-    return res.status(201).json({
-      message: 'Товар успешно создан',
-      product: responseData // product.toObject()
-    });
+    return res.status(201).json(responseData);
   } catch (error) {
     console.error('❌ Ошибка создания товара:', error);
     return res.status(500).json({
@@ -174,7 +171,7 @@ export const updateProduct = async (
       price: updatedProduct.price ?? null
     };
 
-    res.json({ data: responseData });
+    res.json(responseData);
   } catch (error: unknown) {
     if (error instanceof Error && error.message.includes('E11000')) {
       return next(new ConflictError('Продукт с таким названием уже существует'));
