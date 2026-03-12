@@ -14,7 +14,8 @@ router.post(
 );
 
 // Обработчик ошибок Multer
-router.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+/*
+router.use((err: unknown, req: express.Request, res: express.Response, next: express.NextFunction) => {
   if (err instanceof multer.MulterError) {
     console.error('❌ Ошибка Multer:', err);
     res.status(400).json({
@@ -26,5 +27,28 @@ router.use((err: any, req: express.Request, res: express.Response, next: express
     next(err);
   }
 });
+*/
+router.use((err: unknown, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (isMulterError(err)) {
+    console.error('❌ Ошибка Multer:', err);
+    res.status(400).json({
+      error: 'Ошибка загрузки файла',
+      details: err.message,
+      code: err.code
+    });
+  } else {
+    next(err);
+  }
+});
+
+// Тип-гард для проверки, является ли ошибка ошибкой Multer
+function isMulterError(error: unknown): error is multer.MulterError {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    'field' in error
+  );
+}
 
 export default router;

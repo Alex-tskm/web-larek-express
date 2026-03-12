@@ -23,7 +23,7 @@ router.post('/login',
 );
 
 // Выход
-router.get('/logout', logout);
+router.get('/logout', authMiddleware, logout);
 
 // Получение информации о пользователе — защищённый маршрут
 router.get('/user', authMiddleware, getCurrentUser);

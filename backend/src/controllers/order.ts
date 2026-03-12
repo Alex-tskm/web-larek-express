@@ -20,27 +20,6 @@ export const createOrder = async (
   try {
     const { payment, email, phone, address, total, items } = req.body as OrderRequest;
 
-    // Валидация обязательных полей
-    if (!payment || !email || !phone || !address || total == null || !items) {
-      return next(new BadRequestError('Отсутствуют обязательные поля'));
-    }
-
-    // Валидация payment
-    if (!['card', 'online'].includes(payment)) {
-      return next(new BadRequestError('Неверный тип оплаты. Должно быть "card" или "online"'));
-    }
-
-    // Валидация email
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return next(new BadRequestError('Неверный формат email'));
-    }
-
-    // Проверка, что items — непустой массив
-    if (!Array.isArray(items) || items.length === 0) {
-      return next(new BadRequestError('Items должен быть непустым массивом'));
-    }
-
     // Получаем товары из базы данных
     const products = await Product.find({ _id: { $in: items } });
 
@@ -74,6 +53,7 @@ export const createOrder = async (
       total: total
     });
   } catch (error) {
-    next(new InternalServerError());
+    console.error('❌ Ошибка при создании заказа:', error);
+    next(new InternalServerError('Не удалось создать заказ'));
   }
 };

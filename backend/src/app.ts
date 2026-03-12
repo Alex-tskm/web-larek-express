@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import mongoose from 'mongoose';
 import path from 'path';
+import rateLimit from 'express-rate-limit';
 import { requestLogger, errorLogger } from './middleware/logger';
 
 // Импортируем роутеры
@@ -13,8 +14,19 @@ import uploadRouter from './routes/upload';
 
 import { errorHandler } from './middleware/error-handler';
 import cookieParser from 'cookie-parser';
+import { NotFoundError } from './errors/not-found-error';
 
 const app = express();
+
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 минут
+  max: 100, // ограничение на 100 запросов за окно
+  message: 'Слишком много запросов с этого IP, пожалуйста, попробуйте позже',
+  standardHeaders: true, // возвращаем информацию о лимите в заголовках
+  legacyHeaders: false, // отключаем устаревшие заголовки
+});
+
+app.use(limiter);
 
 // Настройка CORS с ограничением источников
 app.use(cors({
@@ -45,29 +57,13 @@ app.get('/', (req, res) => {
 });
 
 // Обработка 404 для несуществующих маршрутов
-app.all('/*splat', (req, res) => {
-  res.status(404).json({
-    error: 'Route not found',
-    path: req.path
-  });
+app.all('/*splat', (req, res, next) => {
+  const error = new NotFoundError(`Route not found: ${req.path}`);
+  next(error);
 });
 
 // Логгер ошибок
 app.use(errorLogger);
-
-// Глобальный обработчик ошибок
-app.use((error: Error, req: express.Request, res: express.Response, next: any) => {
-  console.error('❌ Глобальная ошибка:', error);
-  console.error('Маршрут:', req.method, req.originalUrl);
-  console.error('Заголовки:', req.headers);
-  console.error('Тело запроса:', req.body);
-
-  res.status(500).json({
-    error: 'Internal Server Error',
-    message: process.env.NODE_ENV === 'development' ? error.message : 'An error occurred',
-    stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-  });
-});
 
 // Подключение мидлвара обработки ошибок — должен быть ПОСЛЕ всех роутеров
 app.use(errorHandler);

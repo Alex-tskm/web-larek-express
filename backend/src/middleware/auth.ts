@@ -20,8 +20,9 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
 
   // 1. Проверяем наличие заголовка Authorization
   const authHeader = authReq.headers.authorization;
-  if (!authHeader) {
-    return next(new UnauthorizedError('Токен доступа отсутствует'));
+  if (!authHeader) {    
+    console.log('⚠️ Заголовок Authorization отсутствует. Продолжаем запрос без аутентификации.');
+    return next();    
   }
 
   // 2. Извлекаем токен

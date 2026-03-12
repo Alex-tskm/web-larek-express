@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
-import { Request, Response, NextFunction } from "express";
-import User, { IUser } from "../models/user";
-import { generateTokens, verifyToken, getTokenExpiry } from "../utils/jwt";
+import { Request, Response, NextFunction } from 'express';
+import User, { IUser } from '../models/user';
+import { generateTokens, verifyToken, getTokenExpiry } from '../utils/jwt';
 import jwt, { TokenExpiredError, JsonWebTokenError } from 'jsonwebtoken';
 
 import {
@@ -10,7 +10,7 @@ import {
   UnauthorizedError,
   NotFoundError,
   InternalServerError,
-} from "../errors";
+} from '../errors';
 
 // Регистрация пользователя
 export const register = async (
@@ -24,14 +24,10 @@ export const register = async (
     // 🔧 Логирование входящих данных
     console.log('🔎 Регистрация: получены данные:', { name, email });
 
-    if (!name || !email || !password) {
-      return next(new BadRequestError("Имя, email и пароль обязательны"));
-    }
-
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return next(
-        new ConflictError("Пользователь с таким email уже существует"),
+        new ConflictError('Пользователь с таким email уже существует'),
       );
     }
 
@@ -39,13 +35,13 @@ export const register = async (
       name,
       email,
       password,
-      tokens: [] 
-    }); 
-    
+      tokens: [],
+    });
+
     // 🔧 Проверка подключения к БД
     if (mongoose.connection.readyState !== 1) {
       console.error('❌ БД не подключена!');
-      return next(new InternalServerError("Сервис временно недоступен"));
+      return next(new InternalServerError('Сервис временно недоступен'));
     }
 
     const { accessToken, refreshToken } = generateTokens(user._id.toString());
@@ -53,26 +49,32 @@ export const register = async (
     user.tokens.push({ token: refreshToken });
     await user.save();
 
-    res.cookie("refreshToken", refreshToken, {
+    res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
       maxAge: getTokenExpiry(),
-      path: "/",
+      path: '/',
     });
 
     res.status(201).json({
       user: {
         _id: user._id,
         email: user.email,
-        name: user.name
+        name: user.name,
       },
       success: true,
       accessToken,
     });
   } catch (error: unknown) {
-    console.error('❌ Ошибка в register:', error); // 🔧 Детализация ошибки
-    next(new InternalServerError("Ошибка при регистрации"));
+    console.error('❌ Ошибка в register:', error);
+
+    const mongoError = error as any;
+    if (mongoError.code === 11000) {
+      next(new ConflictError('Пользователь с таким email уже существует'));
+    } else {
+      next(new InternalServerError('Ошибка при регистрации'));
+    }
   }
 };
 
@@ -87,16 +89,12 @@ export const login = async (
 
     console.log('🔎 Авторизация: получены данные:', { email, passwordLength: password?.length });
 
-    if (!email || !password) {
-      return next(new BadRequestError("Email и пароль обязательны"));
-    }
-
     console.log('👤 Ищем пользователя с email:', email);
 
-    const user = await User.findOne({ email }).select("+password");
+    const user = await User.findOne({ email }).select('+password');
     if (!user) {
       console.log('❌ Пользователь с email', email, 'не найден');
-      return next(new UnauthorizedError("Неверный email или пароль"));
+      return next(new UnauthorizedError('Неверный email или пароль'));
     }
 
     console.log('✅ Пользователь найден:', user._id);
@@ -106,11 +104,11 @@ export const login = async (
       const isMatch = await user.comparePassword(password);
       if (!isMatch) {
         console.log('❌ Пароль не совпадает для пользователя', user._id);
-        return next(new UnauthorizedError("Неверный email или пароль"));
+        return next(new UnauthorizedError('Неверный email или пароль'));
       }
     } catch (compareError) {
       console.error('❌ Ошибка сравнения паролей:', compareError);
-      return next(new InternalServerError("Ошибка проверки пароля"));
+      return next(new InternalServerError('Ошибка проверки пароля'));
     }
 
     console.log('🔑 Пароли совпадают, генерируем токены...');
@@ -120,7 +118,7 @@ export const login = async (
     const tokens = generateTokens(user._id.toString());
     console.log('✅ Токены сгенерированы:', {
       accessTokenLength: tokens.accessToken?.length,
-      refreshTokenLength: tokens.refreshToken?.length
+      refreshTokenLength: tokens.refreshToken?.length,
     });
     const { accessToken, refreshToken } = tokens;
 
@@ -132,15 +130,15 @@ export const login = async (
       console.log('✅ Пользователь сохранён с новым токеном');
     } catch (saveError) {
       console.error('❌ Ошибка сохранения пользователя:', saveError);
-      return next(new InternalServerError("Ошибка при сохранении токена"));
+      return next(new InternalServerError('Ошибка при сохранении токена'));
     }
 
-    res.cookie("refreshToken", refreshToken, {
+    res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
       maxAge: getTokenExpiry(),
-      path: "/",
+      path: '/',
     });
 
     console.log('🍪 Кука refreshToken установлена');
@@ -149,13 +147,13 @@ export const login = async (
       user: {
         _id: user._id,
         email: user.email,
-        name: user.name
+        name: user.name,
       },
       success: true,
       accessToken,
     });
   } catch (error: unknown) {
-    console.error('❌ КРИТИЧЕСКАЯ ОШИБКА в login:', error); // 🔧 Детализация ошибки
+    console.error('❌ КРИТИЧЕСКАЯ ОШИБКА в login:', error);
 
     if (error instanceof BadRequestError ||
         error instanceof UnauthorizedError ||
@@ -165,7 +163,7 @@ export const login = async (
       // 🔧 В dev‑режиме показываем реальную ошибку
       const errorMessage = process.env.NODE_ENV === 'development'
         ? (error as Error).message
-        : "Ошибка при авторизации";
+        : 'Ошибка при авторизации';
       next(new InternalServerError(errorMessage));
     }
   }
@@ -178,45 +176,29 @@ export const getCurrentUser = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const authHeader = req.headers.authorization;
+    const authReq = req as Request & { user?: { userId: string } };
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return next(new UnauthorizedError("Access token отсутствует"));
+    if (!authReq.user || !authReq.user.userId) {
+      return next(new UnauthorizedError('Пользователь не авторизован'));
     }
 
-    const accessToken = authHeader.replace("Bearer ", "");
-
-    try {
-      const payload = verifyToken(accessToken);
-
-      if (!payload || !payload.userId) {
-        return next(new UnauthorizedError("Invalid access token"));
-      }
-
-      const user = await User.findById(payload.userId).select(
-        "-password -tokens"
-      );
-      if (!user) {
-        return next(new NotFoundError("Пользователь не найден"));
-      }
-
-      res.json({
-        user: {
-          _id: user._id,
-          email: user.email,
-          name: user.name
-        },
-        success: true,
-      });
-    } catch (jwtError) {
-      if (jwtError instanceof TokenExpiredError) {
-        return next(new UnauthorizedError("Access token просрочен"));
-      } else {
-        return next(new UnauthorizedError("Неверный access token"));
-      }
+    const user = await User.findById(authReq.user.userId).select(
+      '-password -tokens'
+    );
+    if (!user) {
+      return next(new NotFoundError('Пользователь не найден'));
     }
+
+    res.json({
+      user: {
+        _id: user._id,
+        email: user.email,
+        name: user.name,
+      },
+      success: true,
+    });
   } catch (error: unknown) {
-    next(new BadRequestError("Ошибка при получении информации о пользователе"));
+    next(new BadRequestError('Ошибка при получении информации о пользователе'));
   }
 };
 
@@ -233,7 +215,7 @@ export const refreshAccessToken = async (
     // Проверка наличия refreshToken
     if (!refreshToken) {
       console.warn('⚠️ refreshToken отсутствует в cookies');
-      return next(new UnauthorizedError("Refresh token отсутствует"));
+      return next(new UnauthorizedError('Refresh token отсутствует'));
     }
 
     let payload;
@@ -243,39 +225,39 @@ export const refreshAccessToken = async (
     } catch (jwtError) {
       if (jwtError instanceof TokenExpiredError) {
         // Если токен просрочен — очищаем куку и возвращаем ошибку
-        res.clearCookie("refreshToken", {
+        res.clearCookie('refreshToken', {
           httpOnly: true,
-          sameSite: "lax",
-          secure: process.env.NODE_ENV === "production",
-          path: "/"
+          sameSite: 'lax',
+          secure: process.env.NODE_ENV === 'production',
+          path: '/',
         });
         console.warn('⚠️ Refresh token просрочен, кука очищена');
-        return next(new UnauthorizedError("Refresh token просрочен. Требуется повторная авторизация"));
+        return next(new UnauthorizedError('Refresh token просрочен. Требуется повторная авторизация'));
       } else if (jwtError instanceof JsonWebTokenError) {
         // Неверный формат токена
-        return next(new UnauthorizedError("Неверный refresh token"));
+        return next(new UnauthorizedError('Неверный refresh token'));
       } else {
         // Другие ошибки JWT
         console.error('❌ Ошибка JWT при проверке refreshToken:', jwtError);
-        return next(new UnauthorizedError("Ошибка проверки refresh token"));
+        return next(new UnauthorizedError('Ошибка проверки refresh token'));
       }
     }
 
     // Дополнительная проверка payload
     if (!payload || !payload.userId) {
-      return next(new UnauthorizedError("Invalid refresh token: отсутствует userId"));
+      return next(new UnauthorizedError('Invalid refresh token: отсутствует userId'));
     }
 
     // Ищем пользователя в БД
-    const user = await User.findById(payload.userId).select("+tokens");
+    const user = await User.findById(payload.userId).select('+tokens');
     if (!user) {
-      return next(new NotFoundError("Пользователь не найден"));
+      return next(new NotFoundError('Пользователь не найден'));
     }
 
     // Проверяем, что токен есть в БД и не отозван
     const tokenRecord = user.tokens.find((t) => t.token === refreshToken);
     if (!tokenRecord) {
-      return next(new UnauthorizedError("Refresh token не найден или отозван"));
+      return next(new UnauthorizedError('Refresh token не найден или отозван'));
     }
 
     // Генерируем новую пару токенов
@@ -289,29 +271,29 @@ export const refreshAccessToken = async (
     await user.save();
 
     // Устанавливаем новую куку с refresh‑токеном
-    res.cookie("refreshToken", newRefreshToken, {
+    res.cookie('refreshToken', newRefreshToken, {
       httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
       maxAge: getTokenExpiry(),
-      path: "/"
+      path: '/',
     });
 
     res.json({
       user: {
         _id: user._id,
         email: user.email,
-        name: user.name
+        name: user.name,
       },
       success: true,
-      accessToken: newAccessToken
+      accessToken: newAccessToken,
     });
   } catch (error: unknown) {
     if (error instanceof UnauthorizedError || error instanceof NotFoundError) {
       next(error);
     } else {
-      console.error("❌ Неожиданная ошибка в refreshAccessToken:", error);
-      next(new BadRequestError("Ошибка при обновлении токенов"));
+      console.error('❌ Неожиданная ошибка в refreshAccessToken:', error);
+      next(new BadRequestError('Ошибка при обновлении токенов'));
     }
   }
 };

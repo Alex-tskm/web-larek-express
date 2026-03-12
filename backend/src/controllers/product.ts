@@ -34,7 +34,6 @@ export const createProduct = async (
   res: Response,
   next: NextFunction
 ): Promise<Response | void> => {
-  
   console.log('🚀 Создание нового продукта:', req.body);
 
   try {
@@ -54,17 +53,13 @@ export const createProduct = async (
 
     // Валидация изображения
     if (!imageData) {
-      return res.status(400).json({
-        error: 'Некорректный формат данных изображения',
-        details: 'Поле image отсутствует в запросе'
-      });
+      return next(new BadRequestError('Поле image отсутствует в запросе'));
     }
 
     if (!imageData.fileName || !imageData.originalName) {
-      return res.status(400).json({
-        error: 'Некорректный формат данных изображения',
-        details: 'Объект image должен содержать поля fileName и originalName'
-      });
+      return next(new BadRequestError(
+        'Объект image должен содержать поля fileName и originalName'
+      ));
     } 
 
     // Создаём продукт с корректными данными изображения
@@ -93,12 +88,17 @@ export const createProduct = async (
     };    
 
     return res.status(201).json(responseData);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('❌ Ошибка создания товара:', error);
-    return res.status(500).json({
-      error: 'Ошибка при создании товара',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    });
+
+    if (error instanceof Error && error.message.includes('E11000')) {
+      next(new ConflictError('Продукт с таким названием уже существует'));
+    } else if (isMongooseValidationError(error)) {
+      const validationErrors = extractValidationErrors(error);
+      next(new BadRequestError(`Ошибки валидации при создании: ${validationErrors}`));
+    } else {
+      next(new InternalServerError('Ошибка при создании товара'));
+    }
   }
 };
 
