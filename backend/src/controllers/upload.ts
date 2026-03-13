@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { FileService } from '../utils/service';
 import { config } from '../config';
+import { BadRequestError, InternalServerError } from '../errors/index';
 
 export const uploadFile = async (
   req: Request,
@@ -14,9 +15,7 @@ export const uploadFile = async (
 
     if (!req.file) {
       console.warn('❌ Файл не был загружен — req.file отсутствует');
-      return res.status(400).json({
-        error: 'Файл не был загружен'
-      });
+      return next(new BadRequestError('Файл не был загружен'));
     }
 
     const tempFilePath = req.file.path;
@@ -28,9 +27,7 @@ export const uploadFile = async (
     // Проверяем существование временного файла
     if (!fs.existsSync(tempFilePath)) {
       console.error('❌ Временный файл не найден:', tempFilePath);
-      return res.status(500).json({
-        error: 'Временный файл не найден на сервере'
-      });
+      return next(new InternalServerError('Временный файл не найден на сервере'));
     }
 
     try {
@@ -50,7 +47,7 @@ export const uploadFile = async (
 
       return res.status(200).json({
         message: 'Файл успешно загружен',
-        image: imageData, // Возвращаем объект image с правильной структурой
+        image: imageData,
         fileSize: req.file.size,
         mimetype: req.file.mimetype
       });
@@ -65,7 +62,7 @@ export const uploadFile = async (
       } else if (typeof fileError === 'string') {
         errorMessage = fileError;
       } else {
-        errorMessage = 'Unknown error occurred during file upload';
+        errorMessage = 'Во время загрузки файла произошла неизвестная ошибка';
       }
 
       // Пытаемся удалить временный файл при ошибке
@@ -78,16 +75,24 @@ export const uploadFile = async (
         console.error('⚠️ Ошибка при удалении временного файла:', cleanupError);
       }
 
-      return res.status(500).json({
-        error: 'Ошибка при сохранении файла на сервере',
-        details: errorMessage
-      });
+      return next(
+        new InternalServerError(`Ошибка при сохранении файла на сервере: ${errorMessage}`)
+      );
     }
   } catch (error) {
     console.error('❌ Критическая ошибка загрузки файла:', error);
-    return res.status(500).json({
-      error: 'Критическая ошибка загрузки файла',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    });
+
+    let errorMessage: string;
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    } else if (typeof error === 'string') {
+      errorMessage = error;
+    } else {
+      errorMessage = 'Неизвестная критическая ошибка при загрузке файла';
+    }
+
+    return next(
+      new InternalServerError(`Критическая ошибка загрузки файла: ${errorMessage}`)
+    );
   }
 };

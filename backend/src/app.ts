@@ -16,6 +16,8 @@ import { errorHandler } from './middleware/error-handler';
 import cookieParser from 'cookie-parser';
 import { NotFoundError } from './errors/not-found-error';
 
+import { errors } from 'celebrate';
+
 const app = express();
 
 const limiter = rateLimit({
@@ -64,6 +66,9 @@ app.all('/*splat', (req, res, next) => {
 
 // Логгер ошибок
 app.use(errorLogger);
+
+// Обработчик ошибок Celebrate 
+app.use(errors());
 
 // Подключение мидлвара обработки ошибок — должен быть ПОСЛЕ всех роутеров
 app.use(errorHandler);
